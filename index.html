@@ -103,11 +103,17 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 .brush-btn.active{border-color:var(--purple);}
 
 /* LEARN MENU */
+.learn-landing{display:flex;flex-direction:column;flex:1;justify-content:center;gap:14px;}
+.learn-landing-card{background:white;border-radius:var(--radius);padding:28px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:18px;}
+.learn-landing-kicker{font-size:0.85rem;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:1px;text-align:center;}
+.learn-landing-title{font-family:'Fredoka One',cursive;font-size:1.9rem;color:var(--purple);text-align:center;}
+.learn-landing-subtitle{font-size:0.98rem;color:var(--text-light);font-weight:700;text-align:center;max-width:640px;margin:0 auto;line-height:1.5;}
 .learn-top{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
-.learn-card{border-radius:var(--radius);padding:18px 14px;cursor:pointer;transition:transform .2s,box-shadow .2s;text-align:center;box-shadow:var(--shadow);}
+.learn-card{border-radius:var(--radius);padding:24px 14px;cursor:pointer;transition:transform .2s,box-shadow .2s;text-align:center;box-shadow:var(--shadow);min-height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .learn-card:hover{transform:translateY(-4px);box-shadow:0 10px 28px rgba(0,0,0,0.18);}
-.learn-icon{font-size:2.6rem;margin-bottom:10px;}
-.learn-title{font-weight:800;font-size:1.05rem;}
+.learn-icon{font-size:2.8rem;margin-bottom:10px;}
+.learn-title{font-weight:800;font-size:1.12rem;}
+.learn-card-note{font-size:0.82rem;color:var(--text-light);font-weight:700;margin-top:6px;}
 
 /* TUTORIAL SECTION */
 .tutorials-section{background:white;border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);flex:1;}
@@ -130,6 +136,24 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 .up-next-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 .up-next-thumb{border:3px solid rgba(224,212,247,1);border-radius:10px;background:rgba(243,238,255,1);aspect-ratio:4/3;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .2s,transform .15s;font-size:1.4rem;}
 .up-next-thumb:hover{border-color:var(--purple);transform:scale(1.04);}
+
+
+/* LEARN DETAIL PAGES */
+#learn-detail{display:none;flex-direction:column;flex:1;gap:14px;}
+#learn-detail.active{display:flex;}
+.learn-detail-card{background:white;border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);flex:1;display:flex;flex-direction:column;gap:14px;}
+.learn-detail-header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.learn-detail-icon{font-size:2.2rem;width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;border:3px solid rgba(51,51,51,0.1);}
+.learn-detail-title{font-family:'Fredoka One',cursive;font-size:1.55rem;color:var(--purple);}
+.learn-detail-desc{font-size:0.92rem;color:var(--text-light);font-weight:700;}
+.learn-detail-layout{display:grid;grid-template-columns:220px 1fr;gap:18px;flex:1;min-height:0;}
+.learn-detail-sidebar{border-right:2px solid rgba(238,238,238,1);padding-right:14px;}
+.learn-detail-main{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.learn-detail-video{border:5px solid var(--purple);border-radius:16px;overflow:hidden;aspect-ratio:16/9;background:rgba(243,238,255,1);display:flex;align-items:center;justify-content:center;}
+.learn-detail-video video{width:100%;height:100%;display:block;background:black;}
+.learn-detail-placeholder{text-align:center;padding:24px;font-weight:800;color:rgba(68,68,68,1);}
+.learn-detail-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+@media(max-width:640px){.learn-detail-layout{grid-template-columns:1fr;}.learn-detail-sidebar{border-right:none;border-bottom:2px solid rgba(238,238,238,1);padding-right:0;padding-bottom:10px;}.learn-detail-actions{justify-content:center;}}
 
 /* GAME AREAS */
 #game-area,#phonics-area,#vocab-area{display:none;flex-direction:column;flex:1;}
@@ -470,41 +494,56 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 
 <!-- LEARN -->
 <div id="learn" class="page">
-  <div id="learn-menu" style="display:flex;flex-direction:column;flex:1;gap:14px;">
-    <div class="learn-top">
-      <div class="learn-card" style="background:var(--pink-light);border:3px solid var(--pink);" onclick="openPhonics()">
-        <div class="learn-icon">📋</div>
-        <div class="learn-title">Fun with Phonics</div>
-      </div>
-      <div class="learn-card" style="background:var(--orange-light);border:3px solid var(--orange);" onclick="openVocab()">
-        <div class="learn-icon">🗄️</div>
-        <div class="learn-title">Vocabulary Vault</div>
-      </div>
-      <div class="learn-card" style="background:var(--yellow-light);border:3px solid var(--yellow);" onclick="openSpelling()">
-        <div class="learn-icon">🐝</div>
-        <div class="learn-title">Spelling Bee</div>
+  <div id="learn-menu" class="learn-landing">
+    <div class="learn-landing-card">
+      <div class="learn-landing-kicker">Choose a Learning Path</div>
+      <div class="learn-landing-title">What do you want to practice today?</div>
+      <div class="learn-landing-subtitle">Pick a subject to watch its lesson video first. Then use the quiz button on that page when you are ready to play.</div>
+      <div class="learn-top">
+        <div class="learn-card" style="background:var(--pink-light);border:3px solid var(--pink);" onclick="openPhonics()">
+          <div class="learn-icon">📋</div>
+          <div class="learn-title">Fun with Phonics</div>
+          <div class="learn-card-note">Sounds, letters, and rhymes</div>
+        </div>
+        <div class="learn-card" style="background:var(--orange-light);border:3px solid var(--orange);" onclick="openVocab()">
+          <div class="learn-icon">🗄️</div>
+          <div class="learn-title">Vocabulary Vault</div>
+          <div class="learn-card-note">Words and meanings</div>
+        </div>
+        <div class="learn-card" style="background:var(--yellow-light);border:3px solid var(--yellow);" onclick="openSpelling()">
+          <div class="learn-icon">🐝</div>
+          <div class="learn-title">Spelling Bee</div>
+          <div class="learn-card-note">Watch, spell, and practice</div>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- VIDEO TUTORIALS -->
-    <div class="tutorials-section" style="flex:1;">
-      <div class="tutorials-header">
-        <span style="font-size:1.1rem;">📺</span>
-        <span style="font-weight:800;font-size:1.05rem;">Video Lessons</span>
-        <span style="margin-left:auto;font-size:0.82rem;color:var(--text-light);">Click a lesson to watch</span>
-      </div>
-      <div class="tutorial-layout">
-        <div class="lesson-sidebar">
-          <div class="sidebar-label">Complete</div>
-          <div class="lesson-list" id="lesson-list"></div>
+  <!-- LEARN DETAIL PAGE -->
+  <div id="learn-detail">
+    <div class="learn-detail-card">
+      <div class="learn-detail-header">
+        <button class="btn" style="background:rgba(238,238,238,1);color:rgba(51,51,51,1);" onclick="backToLearn()">← Back</button>
+        <div class="learn-detail-icon" id="learn-detail-icon">🐝</div>
+        <div>
+          <div class="learn-detail-title" id="learn-detail-title">Spelling Bee</div>
+          <div class="learn-detail-desc" id="learn-detail-desc">Watch the lesson, then try the quiz.</div>
         </div>
-        <div class="tutorial-main">
-          <div class="video-frame" id="video-frame" onclick="playLesson()">
-            <div class="video-placeholder" id="video-placeholder" style="background:rgba(197,184,232,1);"></div>
-          </div>
+      </div>
+      <div class="learn-detail-layout">
+        <div class="learn-detail-sidebar">
+          <div class="sidebar-label">Lessons</div>
+          <div class="lesson-list" id="category-lesson-list"></div>
+        </div>
+        <div class="learn-detail-main">
+          <div class="learn-detail-video" id="category-video-box"></div>
           <div>
-            <div class="up-next-label" style="margin-bottom:8px;">Up Next</div>
-            <div class="up-next-row" id="up-next-row"></div>
+            <div class="up-next-label" style="margin-bottom:8px;" id="category-lesson-title">Lesson</div>
+            <div style="font-size:0.92rem;color:var(--text-light);font-weight:700;" id="category-lesson-desc"></div>
+          </div>
+          <div class="learn-detail-actions">
+            <button class="btn btn-green" onclick="markCategoryLessonComplete()">✅ Mark Complete</button>
+            <button class="btn btn-yellow" id="category-quiz-btn" onclick="startCategoryQuiz()">Start Quiz ➡️</button>
           </div>
         </div>
       </div>
@@ -855,15 +894,15 @@ const colors=['rgba(124,92,191,1)','rgba(229,57,53,1)','rgba(25,118,210,1)','rgb
 
 // LESSONS
 const lessons=[
-  {id:1,title:"Letters A-E",subject:"phonics",emoji:"🐱",bg:"rgba(197,184,232,1)",completed:true,desc:"Learn the sounds of A, B, C, D and E with fun animals!"},
+  {id:1,title:"Letters A-E",subject:"phonics",emoji:"🐱",bg:"rgba(197,184,232,1)",completed:true,desc:"Learn the sounds of A, B, C, D and E with fun animals!",video:"Phonics.mp4"},
   {id:2,title:"Letters F-J",subject:"phonics",emoji:"🦊",bg:"rgba(184,216,232,1)",completed:true,desc:"Discover F, G, H, I, J — frogs, giraffes and more!"},
   {id:3,title:"Letters K-O",subject:"phonics",emoji:"🦁",bg:"rgba(232,216,184,1)",completed:true,desc:"K, L, M, N, O — kings, lions and otters!"},
   {id:4,title:"Letters P-T",subject:"phonics",emoji:"🐧",bg:"rgba(216,232,184,1)",completed:false,desc:"P, Q, R, S, T — penguins and tigers!"},
   {id:5,title:"Letters U-Z",subject:"phonics",emoji:"🦓",bg:"rgba(232,184,216,1)",completed:false,desc:"Finish the alphabet with U through Z!"},
-  {id:6,title:"Word: Treasure",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Learn the word TREASURE and how to use it."},
+  {id:6,title:"Word: Treasure",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Learn the word TREASURE and how to use it.",video:"Vocab.mp4"},
   {id:7,title:"Word: Brave",subject:"vocab",emoji:"🦸",bg:"rgba(176,212,245,1)",completed:false,desc:"Explore what it means to be BRAVE!"},
   {id:8,title:"Word: Discover",subject:"vocab",emoji:"🔭",bg:"rgba(200,245,176,1)",completed:false,desc:"What does it mean to DISCOVER something?"},
-  {id:9,title:"Spelling: -AT words",subject:"spelling",emoji:"🏆",bg:"rgba(139,105,20,1)",completed:false,desc:"CAT, BAT, HAT, MAT — spell them all!"},
+  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling(3).mp4"},
   {id:10,title:"Spelling: -UN words",subject:"spelling",emoji:"☀️",bg:"rgba(122,92,16,1)",completed:false,desc:"SUN, BUN, FUN, RUN — rhyme and spell!"},
   {id:11,title:"Spelling: -IG words",subject:"spelling",emoji:"🐷",bg:"rgba(107,79,16,1)",completed:false,desc:"BIG, PIG, DIG, FIG — spell them out!"},
 ];
@@ -871,6 +910,7 @@ let currentLesson=0;
 
 function renderLessons(){
   const list=document.getElementById('lesson-list');
+  if(!list) return;
   list.innerHTML=lessons.map((l,i)=>`
     <button class="lesson-btn ${l.completed?'completed':''} ${i===currentLesson?'active-lesson':''}"
       onclick="selectLesson(${i})">${l.completed?'✓ ':''} Lesson ${l.id}</button>
@@ -890,6 +930,7 @@ const subjectLabels={phonics:'PHONICS',vocab:'VOCAB',spelling:'SPELLING'};
 function renderVideoFrame(){
   const l=lessons[currentLesson];
   const frame=document.getElementById('video-placeholder');
+  if(!frame) return;
   frame.style.background=l.bg;
   frame.innerHTML=`
     <div style="text-align:center;padding:20px;">
@@ -902,6 +943,7 @@ function renderVideoFrame(){
 
 function renderUpNext(){
   const row=document.getElementById('up-next-row');
+  if(!row) return;
   const nexts=[];
   for(let i=1;i<=4;i++) nexts.push(lessons[(currentLesson+i)%lessons.length]);
   row.innerHTML=nexts.map((l,i)=>`
@@ -916,12 +958,23 @@ function playLesson(){
   document.getElementById('video-modal-title').textContent='Lesson '+l.id+': '+l.title;
   const body=document.getElementById('video-modal-body');
   body.style.background=l.bg;
-  body.innerHTML=`<div style="text-align:center;padding:30px;">
-    <div style="font-size:5rem;margin-bottom:16px;">${l.emoji}</div>
-    <div style="font-size:1.1rem;font-weight:800;color:rgba(51,51,51,1);margin-bottom:8px;">${l.title}</div>
-    <div style="font-size:0.92rem;color:rgba(85,85,85,1);">${l.desc}</div>
-    <div style="margin-top:20px;font-size:0.82rem;color:rgba(136,136,136,1);">(Video player would appear here in the full app)</div>
-  </div>`;
+
+  if(l.video){
+    body.innerHTML=`
+      <video controls autoplay style="width:100%;height:100%;display:block;background:black;">
+        <source src="${l.video}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+    `;
+  }else{
+    body.innerHTML=`<div style="text-align:center;padding:30px;">
+      <div style="font-size:5rem;margin-bottom:16px;">${l.emoji}</div>
+      <div style="font-size:1.1rem;font-weight:800;color:rgba(51,51,51,1);margin-bottom:8px;">${l.title}</div>
+      <div style="font-size:0.92rem;color:rgba(85,85,85,1);">${l.desc}</div>
+      <div style="margin-top:20px;font-size:0.82rem;color:rgba(136,136,136,1);">(Video player would appear here in the full app)</div>
+    </div>`;
+  }
+
   document.getElementById('video-modal').classList.add('active');
 }
 
@@ -1045,6 +1098,85 @@ function setBrush(s,id){brushSize=s;erasing=false;document.querySelectorAll('.br
 function setEraser(){erasing=true;document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));}
 function saveDrawing(){showToast('Illustration saved! 🎨');}
 
+
+// LEARN DETAIL PAGES
+const learnCategories={
+  phonics:{title:'Fun with Phonics',icon:'📋',desc:'Watch phonics lessons first, then practice with the rhyme quiz.',quiz:'phonics',video:'Phonics.mp4'},
+  vocab:{title:'Vocabulary Vault',icon:'🗄️',desc:'Learn new words first, then test what they mean.',quiz:'vocab',video:'Vocab.mp4'},
+  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling3.mp4'}
+};
+let currentCategory='spelling';
+let currentCategoryLesson=0;
+
+function openLearnCategory(category){
+  currentCategory=category;
+  currentCategoryLesson=0;
+  document.getElementById('learn-menu').style.display='none';
+  document.getElementById('learn-detail').classList.add('active');
+  document.getElementById('game-area').classList.remove('active');
+  document.getElementById('phonics-area').classList.remove('active');
+  document.getElementById('vocab-area').classList.remove('active');
+  renderLearnCategory();
+}
+
+function categoryLessons(){
+  return lessons.filter(l=>l.subject===currentCategory);
+}
+
+function renderLearnCategory(){
+  const cat=learnCategories[currentCategory];
+  const items=categoryLessons();
+  const lesson=items[currentCategoryLesson] || items[0];
+  document.getElementById('learn-detail-icon').textContent=cat.icon;
+  document.getElementById('learn-detail-title').textContent=cat.title;
+  document.getElementById('learn-detail-desc').textContent=cat.desc;
+  document.getElementById('category-quiz-btn').textContent='Start '+cat.title+' Quiz ➡️';
+  document.getElementById('category-lesson-list').innerHTML=items.map((l,i)=>`
+    <button class="lesson-btn ${l.completed?'completed':''} ${i===currentCategoryLesson?'active-lesson':''}"
+      onclick="selectCategoryLesson(${i})">${l.completed?'✓ ':''}${l.title}</button>
+  `).join('');
+  document.getElementById('category-lesson-title').textContent=lesson.title;
+  document.getElementById('category-lesson-desc').textContent=lesson.desc;
+  renderCategoryVideo(lesson,cat);
+}
+
+function selectCategoryLesson(i){
+  currentCategoryLesson=i;
+  renderLearnCategory();
+}
+
+function renderCategoryVideo(lesson,cat){
+  const box=document.getElementById('category-video-box');
+  const videoSrc=lesson.video || cat.video;
+  if(videoSrc){
+    box.innerHTML=`
+      <video controls poster="" style="background:${lesson.bg};">
+        <source src="${videoSrc}" type="video/mp4">
+        <div class="learn-detail-placeholder">Your browser does not support this video.</div>
+      </video>
+    `;
+  }else{
+    box.innerHTML=`<div class="learn-detail-placeholder">
+      <div style="font-size:4rem;margin-bottom:10px;">${lesson.emoji}</div>
+      <div>${lesson.title}</div>
+      <div style="font-size:0.88rem;color:var(--text-light);margin-top:6px;">Add a video file later and connect it here.</div>
+    </div>`;
+  }
+}
+
+function markCategoryLessonComplete(){
+  const items=categoryLessons();
+  const lesson=items[currentCategoryLesson];
+  if(lesson){lesson.completed=true;showToast('Lesson complete! ✅');renderLearnCategory();renderLessons();}
+}
+
+function startCategoryQuiz(){
+  document.getElementById('learn-detail').classList.remove('active');
+  if(currentCategory==='phonics') startPhonicsQuiz();
+  if(currentCategory==='vocab') startVocabQuiz();
+  if(currentCategory==='spelling') startSpellingQuiz();
+}
+
 // SPELLING BEE
 const spellingWords=[
   {word:'CAT',hint:'A furry pet that meows'},{word:'MOON',hint:'Lights up the night sky'},
@@ -1054,7 +1186,8 @@ const spellingWords=[
   {word:'JUMP',hint:'What frogs and rabbits do'},{word:'RAIN',hint:'Falls from clouds'},
 ];
 let spellingState={word:'',revealed:[],lives:5,score:0,guessed:[]};
-function openSpelling(){
+function openSpelling(){openLearnCategory('spelling');}
+function startSpellingQuiz(){
   document.getElementById('learn-menu').style.display='none';
   document.getElementById('game-area').classList.add('active');
   document.getElementById('phonics-area').classList.remove('active');
@@ -1101,7 +1234,8 @@ const phonicsData=[
   {target:'HIT',sound:'it',options:['SIT','CAN','MOP','LEG'],answer:'SIT'},
 ];
 let phonicsIdx=0,phonicsScore=0;
-function openPhonics(){
+function openPhonics(){openLearnCategory('phonics');}
+function startPhonicsQuiz(){
   document.getElementById('learn-menu').style.display='none';
   document.getElementById('phonics-area').classList.add('active');
   document.getElementById('game-area').classList.remove('active');
@@ -1135,7 +1269,8 @@ const vocabData=[
   {word:'TREASURE',def:'Something very precious and valuable',options:['Something broken','Something precious','Something heavy','Something boring'],answer:'Something precious'},
 ];
 let vocabIdx=0,vocabScore=0;
-function openVocab(){
+function openVocab(){openLearnCategory('vocab');}
+function startVocabQuiz(){
   document.getElementById('learn-menu').style.display='none';
   document.getElementById('vocab-area').classList.add('active');
   document.getElementById('game-area').classList.remove('active');
@@ -1161,6 +1296,7 @@ function nextVocab(){vocabIdx++;loadVocab();}
 
 function backToLearn(){
   document.getElementById('learn-menu').style.display='flex';
+  document.getElementById('learn-detail').classList.remove('active');
   document.getElementById('game-area').classList.remove('active');
   document.getElementById('phonics-area').classList.remove('active');
   document.getElementById('vocab-area').classList.remove('active');
