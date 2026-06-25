@@ -127,6 +127,8 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 .lesson-btn:hover{background:rgba(237,231,246,1);color:var(--purple);}
 .lesson-btn.active-lesson{background:var(--purple);color:white;}
 .lesson-btn.completed{background:rgba(232,245,233,1);color:rgba(56,142,60,1);}
+.lesson-btn.locked{opacity:.55;cursor:not-allowed;background:rgba(245,245,245,1);color:rgba(153,153,153,1);}
+.lesson-btn:disabled{cursor:not-allowed;}
 .tutorial-main{display:flex;flex-direction:column;gap:12px;}
 .video-frame{border:5px solid var(--purple);border-radius:14px;overflow:hidden;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;position:relative;cursor:pointer;}
 .video-placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-weight:800;font-size:1.1rem;position:relative;}
@@ -149,8 +151,8 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 .learn-detail-layout{display:grid;grid-template-columns:220px 1fr;gap:18px;flex:1;min-height:0;}
 .learn-detail-sidebar{border-right:2px solid rgba(238,238,238,1);padding-right:14px;}
 .learn-detail-main{display:flex;flex-direction:column;gap:12px;min-width:0;}
-.learn-detail-video{border:3px solid var(--purple);border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:rgba(243,238,255,1);display:flex;align-items:center;justify-content:center;width:100%;max-width:620px;margin:0 auto;}
-.learn-detail-video video{width:100%;height:100%;display:block;background:black;object-fit:contain;}
+.learn-detail-video{border:3px solid var(--purple);border-radius:14px;overflow:hidden;background:rgba(243,238,255,1);display:flex;align-items:center;justify-content:center;width:min(430px,100%);margin:0 auto;}
+.learn-detail-video video{width:100%;height:auto;display:block;background:black;object-fit:contain;}
 .learn-detail-placeholder{text-align:center;padding:24px;font-weight:800;color:rgba(68,68,68,1);}
 .learn-detail-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
 @media(max-width:640px){.learn-detail-layout{grid-template-columns:1fr;}.learn-detail-sidebar{border-right:none;border-bottom:2px solid rgba(238,238,238,1);padding-right:0;padding-bottom:10px;}.learn-detail-actions{justify-content:center;}}
@@ -542,8 +544,7 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
             <div style="font-size:0.92rem;color:var(--text-light);font-weight:700;" id="category-lesson-desc"></div>
           </div>
           <div class="learn-detail-actions">
-            <button class="btn btn-green" onclick="markCategoryLessonComplete()">✅ Mark Complete</button>
-            <button class="btn btn-yellow" id="category-quiz-btn" onclick="startCategoryQuiz()">Start Quiz ➡️</button>
+            <button class="btn btn-yellow" id="category-quiz-btn" onclick="startCategoryQuiz()" disabled style="opacity:.55;cursor:not-allowed;">Watch Video to Unlock Quiz 🔒</button>
           </div>
         </div>
       </div>
@@ -894,17 +895,21 @@ const colors=['rgba(124,92,191,1)','rgba(229,57,53,1)','rgba(25,118,210,1)','rgb
 
 // LESSONS
 const lessons=[
-  {id:1,title:"Letters A-E",subject:"phonics",emoji:"🐱",bg:"rgba(197,184,232,1)",completed:true,desc:"Learn the sounds of A, B, C, D and E with fun animals!",video:"Phonics.mp4"},
-  {id:2,title:"Letters F-J",subject:"phonics",emoji:"🦊",bg:"rgba(184,216,232,1)",completed:true,desc:"Discover F, G, H, I, J — frogs, giraffes and more!"},
-  {id:3,title:"Letters K-O",subject:"phonics",emoji:"🦁",bg:"rgba(232,216,184,1)",completed:true,desc:"K, L, M, N, O — kings, lions and otters!"},
-  {id:4,title:"Letters P-T",subject:"phonics",emoji:"🐧",bg:"rgba(216,232,184,1)",completed:false,desc:"P, Q, R, S, T — penguins and tigers!"},
-  {id:5,title:"Letters U-Z",subject:"phonics",emoji:"🦓",bg:"rgba(232,184,216,1)",completed:false,desc:"Finish the alphabet with U through Z!"},
-  {id:6,title:"Word: Treasure",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Learn the word TREASURE and how to use it.",video:"Vocab.mp4"},
-  {id:7,title:"Word: Brave",subject:"vocab",emoji:"🦸",bg:"rgba(176,212,245,1)",completed:false,desc:"Explore what it means to be BRAVE!"},
-  {id:8,title:"Word: Discover",subject:"vocab",emoji:"🔭",bg:"rgba(200,245,176,1)",completed:false,desc:"What does it mean to DISCOVER something?"},
-  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling.mp4"},
-  {id:10,title:"Spelling: -UN words",subject:"spelling",emoji:"☀️",bg:"rgba(122,92,16,1)",completed:false,desc:"SUN, BUN, FUN, RUN — rhyme and spell!"},
-  {id:11,title:"Spelling: -IG words",subject:"spelling",emoji:"🐷",bg:"rgba(107,79,16,1)",completed:false,desc:"BIG, PIG, DIG, FIG — spell them out!"},
+  {id:1,title:"Lesson 1",subject:"phonics",emoji:"🐱",bg:"rgba(197,184,232,1)",completed:false,desc:"Watch the first phonics lesson, then pass the quiz to complete it.",video:"Phonics.mp4"},
+  {id:2,title:"Lesson 2",subject:"phonics",emoji:"🦊",bg:"rgba(184,216,232,1)",completed:false,desc:"Keep practicing phonics sounds and rhyming words."},
+  {id:3,title:"Lesson 3",subject:"phonics",emoji:"🦁",bg:"rgba(232,216,184,1)",completed:false,desc:"Build confidence with more letter sounds."},
+  {id:4,title:"Lesson 4",subject:"phonics",emoji:"🐧",bg:"rgba(216,232,184,1)",completed:false,desc:"Practice stronger phonics patterns."},
+  {id:5,title:"Lesson 5",subject:"phonics",emoji:"🦓",bg:"rgba(232,184,216,1)",completed:false,desc:"Finish this phonics path with a final practice lesson."},
+  {id:6,title:"Lesson 1",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Watch the first vocabulary lesson, then pass the quiz to complete it.",video:"Vocab.mp4"},
+  {id:7,title:"Lesson 2",subject:"vocab",emoji:"🦸",bg:"rgba(176,212,245,1)",completed:false,desc:"Learn more words and what they mean."},
+  {id:8,title:"Lesson 3",subject:"vocab",emoji:"🔭",bg:"rgba(200,245,176,1)",completed:false,desc:"Practice choosing the best meaning for each word."},
+  {id:9,title:"Lesson 4",subject:"vocab",emoji:"📚",bg:"rgba(255,229,180,1)",completed:false,desc:"Grow your vocabulary with another lesson."},
+  {id:10,title:"Lesson 5",subject:"vocab",emoji:"⭐",bg:"rgba(227,242,253,1)",completed:false,desc:"Finish this vocabulary path with a final practice lesson."},
+  {id:11,title:"Lesson 1",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the first spelling lesson, then pass the quiz to complete it.",video:"Spelling.mp4"},
+  {id:12,title:"Lesson 2",subject:"spelling",emoji:"☀️",bg:"rgba(122,92,16,1)",completed:false,desc:"Practice spelling more short words."},
+  {id:13,title:"Lesson 3",subject:"spelling",emoji:"🐷",bg:"rgba(107,79,16,1)",completed:false,desc:"Keep building spelling confidence."},
+  {id:14,title:"Lesson 4",subject:"spelling",emoji:"✏️",bg:"rgba(255,249,196,1)",completed:false,desc:"Practice a new spelling pattern."},
+  {id:15,title:"Lesson 5",subject:"spelling",emoji:"🏆",bg:"rgba(232,245,233,1)",completed:false,desc:"Finish this spelling path with a final practice lesson."},
 ];
 let currentLesson=0;
 
@@ -1102,12 +1107,36 @@ function saveDrawing(){showToast('Illustration saved! 🎨');}
 
 // LEARN DETAIL PAGES
 const learnCategories={
-  phonics:{title:'Fun with Phonics',icon:'📋',desc:'Watch phonics lessons first, then practice with the rhyme quiz.',quiz:'phonics',video:'Phonics.mp4'},
-  vocab:{title:'Vocabulary Vault',icon:'🗄️',desc:'Learn new words first, then test what they mean.',quiz:'vocab',video:'Vocab.mp4'},
-  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling.mp4'}
+  phonics:{title:'Fun with Phonics',icon:'📋',desc:'Watch the phonics lesson first. The quiz unlocks after the video ends.',quiz:'phonics',video:'Phonics.mp4'},
+  vocab:{title:'Vocabulary Vault',icon:'🗄️',desc:'Watch the vocabulary lesson first. The quiz unlocks after the video ends.',quiz:'vocab',video:'Vocab.mp4'},
+  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first. The quiz unlocks after the video ends.',quiz:'spelling',video:'Spelling.mp4'}
 };
 let currentCategory='spelling';
 let currentCategoryLesson=0;
+let activeQuizCategory=null;
+let activeQuizLessonIndex=0;
+let videoFinished=false;
+const PASSING_SCORE=7;
+const QUIZ_TOTAL=10;
+
+function progressKey(){return 'scoopsLessonProgressV1';}
+function getProgress(){
+  try{return JSON.parse(localStorage.getItem(progressKey())) || {};}
+  catch(e){return {};}
+}
+function saveProgress(progress){localStorage.setItem(progressKey(),JSON.stringify(progress));}
+function lessonProgressId(category,index){return category+'-'+index;}
+function isLessonCompleted(category,index){return !!getProgress()[lessonProgressId(category,index)];}
+function completeLesson(category,index){
+  const progress=getProgress();
+  progress[lessonProgressId(category,index)]=true;
+  saveProgress(progress);
+  const items=lessons.filter(l=>l.subject===category);
+  if(items[index]) items[index].completed=true;
+}
+function isLessonUnlocked(category,index){
+  return index===0 || isLessonCompleted(category,index-1);
+}
 
 function openLearnCategory(category){
   currentCategory=category;
@@ -1128,27 +1157,58 @@ function renderLearnCategory(){
   const cat=learnCategories[currentCategory];
   const items=categoryLessons();
   const lesson=items[currentCategoryLesson] || items[0];
+  videoFinished=false;
   document.getElementById('learn-detail-icon').textContent=cat.icon;
   document.getElementById('learn-detail-title').textContent=cat.title;
   document.getElementById('learn-detail-desc').textContent=cat.desc;
-  document.getElementById('category-quiz-btn').textContent='Start '+cat.title+' Quiz ➡️';
-  document.getElementById('category-lesson-list').innerHTML=items.map((l,i)=>`
-    <button class="lesson-btn ${l.completed?'completed':''} ${i===currentCategoryLesson?'active-lesson':''}"
-      onclick="selectCategoryLesson(${i})">${l.completed?'✓ ':''}${l.title}</button>
-  `).join('');
-  document.getElementById('category-lesson-title').textContent=lesson.title;
+  document.getElementById('category-lesson-list').innerHTML=items.map((l,i)=>{
+    const completed=isLessonCompleted(currentCategory,i);
+    const locked=!isLessonUnlocked(currentCategory,i);
+    const active=i===currentCategoryLesson;
+    const label=completed?'✅ Lesson '+(i+1):locked?'🔒 Lesson '+(i+1):'Lesson '+(i+1);
+    return `<button class="lesson-btn ${completed?'completed':''} ${locked?'locked':''} ${active?'active-lesson':''}" ${locked?'disabled':''} onclick="selectCategoryLesson(${i})">${label}</button>`;
+  }).join('');
+  document.getElementById('category-lesson-title').textContent='Lesson '+(currentCategoryLesson+1);
   document.getElementById('category-lesson-desc').textContent=lesson.desc;
   renderCategoryVideo(lesson,cat);
+  updateQuizButton(false);
+}
+
+function updateQuizButton(unlocked){
+  const btn=document.getElementById('category-quiz-btn');
+  if(!btn) return;
+  if(isLessonCompleted(currentCategory,currentCategoryLesson)){
+    btn.disabled=false;
+    btn.style.opacity='1';
+    btn.style.cursor='pointer';
+    btn.textContent='Retake Quiz ➡️';
+    return;
+  }
+  if(unlocked){
+    btn.disabled=false;
+    btn.style.opacity='1';
+    btn.style.cursor='pointer';
+    btn.textContent='Take Quiz ➡️';
+  }else{
+    btn.disabled=true;
+    btn.style.opacity='.55';
+    btn.style.cursor='not-allowed';
+    btn.textContent='Watch Video to Unlock Quiz 🔒';
+  }
 }
 
 function selectCategoryLesson(i){
+  if(!isLessonUnlocked(currentCategory,i)){
+    showToast('Complete the previous lesson first 🔒');
+    return;
+  }
   currentCategoryLesson=i;
   renderLearnCategory();
 }
 
 function getVideoSources(src){
   if(src==='Spelling.mp4'){
-    return ['Spelling.mp4','spelling.mp4','Spelling.mp4','Spelling.mp4'];
+    return ['Spelling.mp4','spelling.mp4'];
   }
   return [src];
 }
@@ -1161,6 +1221,8 @@ function tryNextVideo(video){
     video.dataset.index=String(nextIndex);
     video.src=sources[nextIndex];
     video.load();
+  }else{
+    showToast('Video could not load. Check the file name in GitHub.');
   }
 }
 
@@ -1170,7 +1232,7 @@ function renderCategoryVideo(lesson,cat){
   if(videoSrc){
     const sources=getVideoSources(videoSrc);
     box.innerHTML=`
-      <video controls playsinline preload="metadata" data-sources="${sources.join('|')}" data-index="0" onerror="tryNextVideo(this)" style="background:${lesson.bg};">
+      <video controls playsinline preload="metadata" data-sources="${sources.join('|')}" data-index="0" onended="videoFinished=true;updateQuizButton(true);showToast('Quiz unlocked! 📝');" onerror="tryNextVideo(this)" style="background:${lesson.bg};">
         <source src="${sources[0]}" type="video/mp4">
         <div class="learn-detail-placeholder">Your browser does not support this video.</div>
       </video>
@@ -1181,20 +1243,44 @@ function renderCategoryVideo(lesson,cat){
       <div>${lesson.title}</div>
       <div style="font-size:0.88rem;color:var(--text-light);margin-top:6px;">Add a video file later and connect it here.</div>
     </div>`;
+    updateQuizButton(true);
   }
 }
 
-function markCategoryLessonComplete(){
-  const items=categoryLessons();
-  const lesson=items[currentCategoryLesson];
-  if(lesson){lesson.completed=true;showToast('Lesson complete! ✅');renderLearnCategory();renderLessons();}
-}
-
 function startCategoryQuiz(){
+  if(!videoFinished && !isLessonCompleted(currentCategory,currentCategoryLesson)){
+    showToast('Watch the video first to unlock the quiz.');
+    return;
+  }
+  activeQuizCategory=currentCategory;
+  activeQuizLessonIndex=currentCategoryLesson;
   document.getElementById('learn-detail').classList.remove('active');
   if(currentCategory==='phonics') startPhonicsQuiz();
   if(currentCategory==='vocab') startVocabQuiz();
   if(currentCategory==='spelling') startSpellingQuiz();
+}
+
+function finishLessonQuiz(score,total){
+  const category=activeQuizCategory || currentCategory;
+  const lessonIndex=activeQuizLessonIndex || currentCategoryLesson;
+  if(score>=PASSING_SCORE){
+    completeLesson(category,lessonIndex);
+    showToast(`🎉 Great job! You scored ${score}/${total}. Lesson complete!`);
+    currentCategory=category;
+    const nextIndex=lessonIndex+1;
+    const items=lessons.filter(l=>l.subject===category);
+    currentCategoryLesson= nextIndex < items.length ? nextIndex : lessonIndex;
+    setTimeout(()=>{
+      openLearnCategory(category);
+      renderLessons();
+    },900);
+  }else{
+    showToast(`Nice try! You scored ${score}/${total}. Try again to pass.`);
+    setTimeout(()=>{
+      currentCategory=category;currentCategoryLesson=lessonIndex;openLearnCategory(category);
+      updateQuizButton(true);
+    },900);
+  }
 }
 
 // SPELLING BEE
@@ -1205,20 +1291,29 @@ const spellingWords=[
   {word:'BIRD',hint:'Has wings and can fly'},{word:'CAKE',hint:'A sweet birthday treat'},
   {word:'JUMP',hint:'What frogs and rabbits do'},{word:'RAIN',hint:'Falls from clouds'},
 ];
-let spellingState={word:'',revealed:[],lives:5,score:0,guessed:[]};
+let spellingState={word:'',revealed:[],lives:5,score:0,guessed:[],round:0,used:[]};
 function openSpelling(){openLearnCategory('spelling');}
 function startSpellingQuiz(){
   document.getElementById('learn-menu').style.display='none';
   document.getElementById('game-area').classList.add('active');
   document.getElementById('phonics-area').classList.remove('active');
   document.getElementById('vocab-area').classList.remove('active');
-  spellingState.score=0;newSpellingWord();
+  spellingState={word:'',revealed:[],lives:5,score:0,guessed:[],round:0,used:[]};newSpellingWord();
 }
 function newSpellingWord(){
-  const w=spellingWords[Math.floor(Math.random()*spellingWords.length)];
-  spellingState={word:w.word,hint:w.hint,revealed:Array(w.word.length).fill(false),lives:5,score:spellingState.score,guessed:[]};
-  document.getElementById('game-hint').textContent='Hint: '+w.hint;
+  if(spellingState.round>=QUIZ_TOTAL){
+    finishLessonQuiz(spellingState.score,QUIZ_TOTAL);
+    return;
+  }
+  let available=spellingWords.filter(w=>!spellingState.used.includes(w.word));
+  if(!available.length) available=spellingWords;
+  const w=available[Math.floor(Math.random()*available.length)];
+  spellingState.used.push(w.word);
+  spellingState.round++;
+  spellingState={word:w.word,hint:w.hint,revealed:Array(w.word.length).fill(false),lives:5,score:spellingState.score,guessed:[],round:spellingState.round,used:spellingState.used};
+  document.getElementById('game-hint').textContent='Question '+spellingState.round+' of '+QUIZ_TOTAL+' • Hint: '+w.hint;
   document.getElementById('next-word-btn').style.display='none';
+  document.getElementById('next-word-btn').textContent=spellingState.round>=QUIZ_TOTAL?'Finish Quiz ➡️':'Next Word ➡️';
   renderSpelling();renderLetterGrid();
 }
 function renderSpelling(){
@@ -1266,18 +1361,19 @@ function loadPhonics(){
   const d=phonicsData[phonicsIdx%phonicsData.length];
   document.getElementById('phonics-target').textContent=d.target;
   document.getElementById('phonics-prompt').textContent='Which word rhymes with "'+d.sound+'"?';
-  document.getElementById('phonics-score-label').textContent='Score: '+phonicsScore;
+  document.getElementById('phonics-score-label').textContent='Question '+(phonicsIdx+1)+' of '+QUIZ_TOTAL+' • Score: '+phonicsScore;
   document.getElementById('phonics-options').innerHTML=d.options.map(o=>`<button class="phonics-btn" onclick="checkPhonics('${o}','${d.answer}',this)">${o}</button>`).join('');
   document.getElementById('phonics-next').style.display='none';
+  document.getElementById('phonics-next').textContent=phonicsIdx>=QUIZ_TOTAL-1?'Finish Quiz ➡️':'Next ➡️';
 }
 function checkPhonics(choice,answer,btn){
   document.querySelectorAll('.phonics-btn').forEach(b=>b.disabled=true);
   if(choice===answer){btn.classList.add('correct');phonicsScore++;showToast('✅ Correct!');}
   else{btn.classList.add('wrong');document.querySelectorAll('.phonics-btn').forEach(b=>{if(b.textContent===answer)b.classList.add('correct');});showToast('❌ Not quite!');}
-  document.getElementById('phonics-score-label').textContent='Score: '+phonicsScore;
+  document.getElementById('phonics-score-label').textContent='Question '+(phonicsIdx+1)+' of '+QUIZ_TOTAL+' • Score: '+phonicsScore;
   document.getElementById('phonics-next').style.display='inline-block';
 }
-function nextPhonics(){phonicsIdx++;loadPhonics();}
+function nextPhonics(){phonicsIdx++;if(phonicsIdx>=QUIZ_TOTAL){finishLessonQuiz(phonicsScore,QUIZ_TOTAL);return;}loadPhonics();}
 
 // VOCAB
 const vocabData=[
@@ -1301,18 +1397,19 @@ function loadVocab(){
   const d=vocabData[vocabIdx%vocabData.length];
   document.getElementById('vocab-word').textContent=d.word;
   document.getElementById('vocab-def').textContent='"'+d.def+'"';
-  document.getElementById('vocab-score-label').textContent='Score: '+vocabScore;
+  document.getElementById('vocab-score-label').textContent='Question '+(vocabIdx+1)+' of '+QUIZ_TOTAL+' • Score: '+vocabScore;
   document.getElementById('vocab-options').innerHTML=d.options.map(o=>`<button class="vocab-btn" onclick="checkVocab(this,'${d.answer}')">${o}</button>`).join('');
   document.getElementById('vocab-next').style.display='none';
+  document.getElementById('vocab-next').textContent=vocabIdx>=QUIZ_TOTAL-1?'Finish Quiz ➡️':'Next ➡️';
 }
 function checkVocab(btn,answer){
   document.querySelectorAll('.vocab-btn').forEach(b=>b.disabled=true);
   if(btn.textContent===answer){btn.classList.add('correct');vocabScore++;showToast('✅ Correct!');}
   else{btn.classList.add('wrong');document.querySelectorAll('.vocab-btn').forEach(b=>{if(b.textContent===answer)b.classList.add('correct');});showToast('❌ Not quite!');}
-  document.getElementById('vocab-score-label').textContent='Score: '+vocabScore;
+  document.getElementById('vocab-score-label').textContent='Question '+(vocabIdx+1)+' of '+QUIZ_TOTAL+' • Score: '+vocabScore;
   document.getElementById('vocab-next').style.display='inline-block';
 }
-function nextVocab(){vocabIdx++;loadVocab();}
+function nextVocab(){vocabIdx++;if(vocabIdx>=QUIZ_TOTAL){finishLessonQuiz(vocabScore,QUIZ_TOTAL);return;}loadVocab();}
 
 function backToLearn(){
   document.getElementById('learn-menu').style.display='flex';
