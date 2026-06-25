@@ -1104,7 +1104,7 @@ function saveDrawing(){showToast('Illustration saved! 🎨');}
 const learnCategories={
   phonics:{title:'Fun with Phonics',icon:'📋',desc:'Watch phonics lessons first, then practice with the rhyme quiz.',quiz:'phonics',video:'Phonics.mp4'},
   vocab:{title:'Vocabulary Vault',icon:'🗄️',desc:'Learn new words first, then test what they mean.',quiz:'vocab',video:'Vocab.mp4'},
-  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling3.mp4'}
+  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling.mp4'}
 };
 let currentCategory='spelling';
 let currentCategoryLesson=0;
@@ -1147,8 +1147,8 @@ function selectCategoryLesson(i){
 }
 
 function getVideoSources(src){
-  if(src==='Spelling3.mp4'){
-    return ['Spelling3.mp4','spelling3.mp4','Spelling.mp4','Spelling(3).mp4'];
+  if(src==='Spelling.mp4'){
+    return ['Spelling.mp4','spelling.mp4','Spelling.mp4','Spelling(3).mp4'];
   }
   return [src];
 }
