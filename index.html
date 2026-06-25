@@ -149,8 +149,8 @@ nav button:hover:not(.active){background:rgba(221,221,221,1);}
 .learn-detail-layout{display:grid;grid-template-columns:220px 1fr;gap:18px;flex:1;min-height:0;}
 .learn-detail-sidebar{border-right:2px solid rgba(238,238,238,1);padding-right:14px;}
 .learn-detail-main{display:flex;flex-direction:column;gap:12px;min-width:0;}
-.learn-detail-video{border:5px solid var(--purple);border-radius:16px;overflow:hidden;aspect-ratio:16/9;background:rgba(243,238,255,1);display:flex;align-items:center;justify-content:center;}
-.learn-detail-video video{width:100%;height:100%;display:block;background:black;}
+.learn-detail-video{border:4px solid var(--purple);border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:rgba(243,238,255,1);display:flex;align-items:center;justify-content:center;width:100%;max-width:720px;margin:0 auto;}
+.learn-detail-video video{width:100%;height:100%;display:block;background:black;object-fit:contain;}
 .learn-detail-placeholder{text-align:center;padding:24px;font-weight:800;color:rgba(68,68,68,1);}
 .learn-detail-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
 @media(max-width:640px){.learn-detail-layout{grid-template-columns:1fr;}.learn-detail-sidebar{border-right:none;border-bottom:2px solid rgba(238,238,238,1);padding-right:0;padding-bottom:10px;}.learn-detail-actions{justify-content:center;}}
@@ -902,7 +902,7 @@ const lessons=[
   {id:6,title:"Word: Treasure",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Learn the word TREASURE and how to use it.",video:"Vocab.mp4"},
   {id:7,title:"Word: Brave",subject:"vocab",emoji:"🦸",bg:"rgba(176,212,245,1)",completed:false,desc:"Explore what it means to be BRAVE!"},
   {id:8,title:"Word: Discover",subject:"vocab",emoji:"🔭",bg:"rgba(200,245,176,1)",completed:false,desc:"What does it mean to DISCOVER something?"},
-  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling(3).mp4"},
+  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling3.mp4"},
   {id:10,title:"Spelling: -UN words",subject:"spelling",emoji:"☀️",bg:"rgba(122,92,16,1)",completed:false,desc:"SUN, BUN, FUN, RUN — rhyme and spell!"},
   {id:11,title:"Spelling: -IG words",subject:"spelling",emoji:"🐷",bg:"rgba(107,79,16,1)",completed:false,desc:"BIG, PIG, DIG, FIG — spell them out!"},
 ];
@@ -960,9 +960,11 @@ function playLesson(){
   body.style.background=l.bg;
 
   if(l.video){
+    const backupSource = l.subject === 'spelling' ? '<source src="Spelling(3).mp4" type="video/mp4">' : '';
     body.innerHTML=`
-      <video controls autoplay style="width:100%;height:100%;display:block;background:black;">
+      <video controls autoplay playsinline style="width:100%;height:100%;display:block;background:black;object-fit:contain;">
         <source src="${l.video}" type="video/mp4">
+        ${backupSource}
         Your browser does not support the video tag.
       </video>
     `;
@@ -1149,9 +1151,11 @@ function renderCategoryVideo(lesson,cat){
   const box=document.getElementById('category-video-box');
   const videoSrc=lesson.video || cat.video;
   if(videoSrc){
+    const backupSource = currentCategory === 'spelling' ? '<source src="Spelling(3).mp4" type="video/mp4">' : '';
     box.innerHTML=`
-      <video controls poster="" style="background:${lesson.bg};">
+      <video controls playsinline preload="metadata" style="background:${lesson.bg};">
         <source src="${videoSrc}" type="video/mp4">
+        ${backupSource}
         <div class="learn-detail-placeholder">Your browser does not support this video.</div>
       </video>
     `;
