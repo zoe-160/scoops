@@ -902,7 +902,7 @@ const lessons=[
   {id:6,title:"Word: Treasure",subject:"vocab",emoji:"💰",bg:"rgba(245,232,176,1)",completed:false,desc:"Learn the word TREASURE and how to use it.",video:"Vocab.mp4"},
   {id:7,title:"Word: Brave",subject:"vocab",emoji:"🦸",bg:"rgba(176,212,245,1)",completed:false,desc:"Explore what it means to be BRAVE!"},
   {id:8,title:"Word: Discover",subject:"vocab",emoji:"🔭",bg:"rgba(200,245,176,1)",completed:false,desc:"What does it mean to DISCOVER something?"},
-  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling3.mp4"},
+  {id:9,title:"Spelling Tutorial",subject:"spelling",emoji:"🐝",bg:"rgba(139,105,20,1)",completed:false,desc:"Watch the spelling tutorial, then try the Spelling Bee game!",video:"Spelling.mp4"},
   {id:10,title:"Spelling: -UN words",subject:"spelling",emoji:"☀️",bg:"rgba(122,92,16,1)",completed:false,desc:"SUN, BUN, FUN, RUN — rhyme and spell!"},
   {id:11,title:"Spelling: -IG words",subject:"spelling",emoji:"🐷",bg:"rgba(107,79,16,1)",completed:false,desc:"BIG, PIG, DIG, FIG — spell them out!"},
 ];
@@ -1104,7 +1104,7 @@ function saveDrawing(){showToast('Illustration saved! 🎨');}
 const learnCategories={
   phonics:{title:'Fun with Phonics',icon:'📋',desc:'Watch phonics lessons first, then practice with the rhyme quiz.',quiz:'phonics',video:'Phonics.mp4'},
   vocab:{title:'Vocabulary Vault',icon:'🗄️',desc:'Learn new words first, then test what they mean.',quiz:'vocab',video:'Vocab.mp4'},
-  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling3.mp4'}
+  spelling:{title:'Spelling Bee',icon:'🐝',desc:'Watch the spelling tutorial first, then try the spelling quiz.',quiz:'spelling',video:'Spelling.mp4'}
 };
 let currentCategory='spelling';
 let currentCategoryLesson=0;
@@ -1147,8 +1147,8 @@ function selectCategoryLesson(i){
 }
 
 function getVideoSources(src){
-  if(src==='Spelling3.mp4'){
-    return ['Spelling3.mp4','spelling3.mp4','Spelling.mp4','Spelling(3).mp4'];
+  if(src==='Spelling.mp4'){
+    return ['Spelling.mp4','spelling.mp4','Spelling.mp4','Spelling.mp4'];
   }
   return [src];
 }
