@@ -1,0 +1,750 @@
+'use strict';
+
+const http = require('http');
+const net = require('net');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+
+const PORT = Number(process.env.PORT || 3000);
+const HOST = process.env.HOST || '127.0.0.1';
+const MAILPIT_SMTP_HOST = process.env.MAILPIT_SMTP_HOST || '127.0.0.1';
+const MAILPIT_SMTP_PORT = Number(process.env.MAILPIT_SMTP_PORT || 1025);
+const MAIL_FROM = process.env.MAIL_FROM || 'Scoops <hello@scoops.local>';
+const CODE_TTL_MS = Number(process.env.CODE_TTL_MS || 10 * 60 * 1000);
+const SCOOPS_BUILD = 'progress-reports-v7-2026-08-02';
+const WELCOME_TEMPLATE_VERSION = 'welcome-branded-v3';
+const REPORT_TEMPLATE_VERSION = 'progress-bars-left-v3';
+const HTML_CANDIDATES = ['index.html', 'scoops_mailpit_connected.html'];
+function resolveHtmlFile() {
+  const match = HTML_CANDIDATES.map(name => path.join(__dirname, name)).find(file => fs.existsSync(file));
+  return match || path.join(__dirname, 'index.html');
+}
+const HTML_FILE = resolveHtmlFile();
+
+const verificationCodes = new Map();
+const parentCodes = new Map();
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
+}
+
+function cleanHeader(value) {
+  return String(value || '').replace(/[\r\n]+/g, ' ').trim();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+}
+
+function generateCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function storeCode(map, email) {
+  const code = generateCode();
+  map.set(normalizeEmail(email), {
+    code,
+    expiresAt: Date.now() + CODE_TTL_MS,
+    attempts: 0
+  });
+  return code;
+}
+
+function verifyStoredCode(map, email, code) {
+  const key = normalizeEmail(email);
+  const record = map.get(key);
+  if (!record) return { ok: false, error: 'No active code was found. Request a new code.' };
+  if (Date.now() > record.expiresAt) {
+    map.delete(key);
+    return { ok: false, error: 'That code expired. Request a new code.' };
+  }
+  record.attempts += 1;
+  if (record.attempts > 8) {
+    map.delete(key);
+    return { ok: false, error: 'Too many attempts. Request a new code.' };
+  }
+  if (String(code || '') !== record.code) {
+    return { ok: false, error: 'That code is not correct.' };
+  }
+  map.delete(key);
+  return { ok: true };
+}
+
+function envelopeAddress(fromHeader) {
+  const match = String(fromHeader).match(/<([^>]+)>/);
+  return cleanHeader(match ? match[1] : fromHeader);
+}
+
+function makeMessage({ to, subject, text, html }) {
+  const boundary = `scoops-${crypto.randomBytes(12).toString('hex')}`;
+  const messageId = `<${Date.now()}.${crypto.randomBytes(8).toString('hex')}@scoops.local>`;
+  return [
+    `From: ${cleanHeader(MAIL_FROM)}`,
+    `To: ${cleanHeader(to)}`,
+    `Subject: ${cleanHeader(subject)}`,
+    `Date: ${new Date().toUTCString()}`,
+    `Message-ID: ${messageId}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    String(text || ''),
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    String(html || ''),
+    '',
+    `--${boundary}--`,
+    ''
+  ].join('\r\n');
+}
+
+function smtpSend({ to, subject, text, html }) {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection({ host: MAILPIT_SMTP_HOST, port: MAILPIT_SMTP_PORT });
+    socket.setTimeout(8000);
+
+    let lineBuffer = '';
+    let responseLines = [];
+    const responseQueue = [];
+    const waiters = [];
+    let settled = false;
+
+    function finishError(error) {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+
+    function pushResponse(response) {
+      const waiter = waiters.shift();
+      if (waiter) waiter.resolve(response);
+      else responseQueue.push(response);
+    }
+
+    function readResponse() {
+      if (responseQueue.length) return Promise.resolve(responseQueue.shift());
+      return new Promise((resolveResponse, rejectResponse) => {
+        waiters.push({ resolve: resolveResponse, reject: rejectResponse });
+      });
+    }
+
+    function assertCode(response, acceptedCodes) {
+      const code = Number(String(response).slice(0, 3));
+      if (!acceptedCodes.includes(code)) {
+        throw new Error(`Mailpit SMTP rejected the message (${response}).`);
+      }
+    }
+
+    async function command(commandText, acceptedCodes) {
+      if (commandText !== null) socket.write(`${commandText}\r\n`);
+      const response = await readResponse();
+      assertCode(response, acceptedCodes);
+      return response;
+    }
+
+    socket.on('data', chunk => {
+      lineBuffer += chunk.toString('utf8');
+      const lines = lineBuffer.split(/\r?\n/);
+      lineBuffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line) continue;
+        responseLines.push(line);
+        if (/^\d{3} /.test(line)) {
+          pushResponse(responseLines.join('\n'));
+          responseLines = [];
+        }
+      }
+    });
+
+    socket.on('timeout', () => finishError(new Error('Timed out connecting to Mailpit SMTP.')));
+    socket.on('error', error => finishError(new Error(`Could not connect to Mailpit SMTP at ${MAILPIT_SMTP_HOST}:${MAILPIT_SMTP_PORT}. ${error.message}`)));
+    socket.on('close', () => {
+      if (!settled && waiters.length) finishError(new Error('Mailpit closed the SMTP connection unexpectedly.'));
+    });
+
+    socket.on('connect', async () => {
+      try {
+        await command(null, [220]);
+        await command('EHLO scoops.local', [250]);
+        await command(`MAIL FROM:<${envelopeAddress(MAIL_FROM)}>`, [250]);
+        await command(`RCPT TO:<${cleanHeader(to)}>`, [250, 251]);
+        await command('DATA', [354]);
+        const message = makeMessage({ to, subject, text, html })
+          .replace(/(^|\r\n)\./g, '$1..');
+        socket.write(`${message}\r\n.\r\n`);
+        const accepted = await readResponse();
+        assertCode(accepted, [250]);
+        socket.write('QUIT\r\n');
+        settled = true;
+        socket.end();
+        resolve();
+      } catch (error) {
+        finishError(error);
+      }
+    });
+  });
+}
+
+function emailDecorSvg(type) {
+  const common = 'width="100%" height="100%" viewBox="0 0 64 64" aria-hidden="true"';
+  if (type === 'book') {
+    return `<svg ${common} style="display:block;stroke:#7c5cbf;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+      <path fill="#f4a7b9" fill-opacity=".48" d="M8 13c8-3 16-2 24 4 8-6 16-7 24-4v38c-8-3-16-2-24 4-8-6-16-7-24-4z"/>
+      <path d="M8 13c8-3 16-2 24 4 8-6 16-7 24-4v38c-8-3-16-2-24 4-8-6-16-7-24-4z"/>
+      <path fill="#ffffff" fill-opacity=".72" d="M11 17c7-2 13-1 21 4v29c-7-4-14-5-21-3zM53 17c-7-2-13-1-21 4v29c7-4 14-5 21-3z"/>
+      <path d="M11 17c7-2 13-1 21 4v29c-7-4-14-5-21-3zM53 17c-7-2-13-1-21 4v29c7-4 14-5 21-3zM32 21v29"/>
+      <path stroke-opacity=".55" d="M16 26h10M16 32h11M16 38h9M38 26h10M37 32h11M39 38h9"/>
+    </svg>`;
+  }
+  if (type === 'pencil') {
+    return `<svg ${common} style="display:block;stroke:#6f5a85;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+      <g transform="rotate(-38 32 32)">
+        <path fill="#ffd54f" fill-opacity=".72" d="M24 9h16v39H24z"/><path d="M24 9h16v39H24z"/>
+        <path fill="#f4a7b9" fill-opacity=".72" d="M24 9h16v8H24z"/><path d="M24 9h16v8H24z"/>
+        <path fill="#ffe0b2" fill-opacity=".9" d="m24 48 8 11 8-11z"/><path d="m24 48 8 11 8-11z"/>
+        <path fill="#504860" fill-opacity=".72" d="m29 55 3 4 3-4z"/><path d="m29 55 3 4 3-4z"/>
+        <path stroke="#ffffff" stroke-opacity=".75" stroke-width="2.4" d="M28 21v22"/>
+      </g>
+    </svg>`;
+  }
+  return `<svg ${common} style="display:block;stroke:#6f5a85;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;">
+    <path fill="#ffffff" fill-opacity=".62" d="M18 35h28l-4 15c-1 4-4 7-8 7h-4c-4 0-7-3-8-7z"/><path d="M18 35h28l-4 15c-1 4-4 7-8 7h-4c-4 0-7-3-8-7z"/>
+    <circle fill="#fce4ec" cx="32" cy="27" r="10"/><circle cx="32" cy="27" r="10"/>
+    <path fill="#b7735c" fill-opacity=".48" d="M24 26c3 3 5-2 8 1s5-2 8 1"/><path d="M24 26c3 3 5-2 8 1s5-2 8 1"/>
+    <circle fill="#dc5c6e" fill-opacity=".8" cx="32" cy="14" r="4"/><circle cx="32" cy="14" r="4"/>
+    <path stroke="#50825a" d="M32 10c1-4 4-6 7-6"/><path d="M32 57v3M25 60h14"/>
+  </svg>`;
+}
+
+function brandedEmailShell(cardHtml, maxWidth = 660) {
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    @media only screen and (max-width:760px){
+      .scoops-email-decor{display:none!important;}
+      .scoops-email-stage{padding-left:12px!important;padding-right:12px!important;}
+      .scoops-email-logo{font-size:34px!important;}
+    }
+  </style>
+</head>
+<body style="margin:0;background:linear-gradient(160deg,#a8d8f0 0%,#c5e8f7 100%);font-family:Arial,sans-serif;color:#333;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;background:linear-gradient(160deg,#a8d8f0 0%,#c5e8f7 100%);">
+    <tr><td align="center" style="padding:0;">
+      <div class="scoops-email-stage" style="position:relative;max-width:850px;margin:0 auto;padding:28px 26px 46px;overflow:hidden;">
+        <div class="scoops-email-logo" style="position:relative;z-index:3;text-align:center;margin:0 0 18px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:42px;font-weight:900;letter-spacing:2px;color:#7c5cbf;text-shadow:2px 2px 0 #b39ddb;">Scoops</div>
+
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;left:4px;top:92px;width:76px;height:76px;opacity:.68;transform:rotate(-10deg);">${emailDecorSvg('sundae')}</div>
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;right:1px;top:126px;width:72px;height:72px;opacity:.65;transform:rotate(9deg);">${emailDecorSvg('book')}</div>
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;left:3px;top:48%;width:72px;height:72px;opacity:.62;transform:rotate(8deg);">${emailDecorSvg('pencil')}</div>
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;right:4px;top:55%;width:75px;height:75px;opacity:.62;transform:rotate(-8deg);">${emailDecorSvg('sundae')}</div>
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;left:34px;bottom:34px;width:66px;height:66px;opacity:.58;transform:rotate(-5deg);">${emailDecorSvg('book')}</div>
+        <div class="scoops-email-decor" style="position:absolute;z-index:1;right:24px;bottom:25px;width:65px;height:65px;opacity:.58;transform:rotate(11deg);">${emailDecorSvg('pencil')}</div>
+
+        <div style="position:relative;z-index:2;max-width:${maxWidth}px;margin:0 auto;">${cardHtml}</div>
+      </div>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+function emailLayout({ eyebrow, title, body, code, footer }) {
+  const card = `<div style="background:white;border-radius:24px;padding:29px;border:3px solid #b39ddb;box-shadow:0 9px 26px rgba(84,64,115,.15);">
+    <div style="font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#7c5cbf;">${escapeHtml(eyebrow)}</div>
+    <h1 style="margin:8px 0 14px;font-size:29px;line-height:1.18;color:#6748ad;">${escapeHtml(title)}</h1>
+    <div style="font-size:16px;line-height:1.65;">${body}</div>
+    ${code ? `<div style="margin:24px auto;text-align:center;font-size:34px;font-weight:900;letter-spacing:8px;color:#333;background:#fff9c4;border:3px solid #ffd54f;border-radius:16px;padding:18px;">${escapeHtml(code)}</div>` : ''}
+    <div style="margin-top:23px;padding-top:15px;border-top:1px solid #eeeeee;font-size:12px;line-height:1.5;color:#666;">${escapeHtml(footer)}</div>
+  </div>`;
+  return brandedEmailShell(card, 580);
+}
+
+async function sendVerificationEmail(email, childName, code) {
+  const safeName = escapeHtml(childName || 'your child');
+  await smtpSend({
+    to: email,
+    subject: 'Verify your Scoops parent email',
+    text: `Use verification code ${code} to finish creating the Scoops account for ${childName || 'your child'}. This code expires in 10 minutes.`,
+    html: emailLayout({
+      eyebrow: 'Scoops account verification',
+      title: 'Verify the parent email',
+      body: `Use this code to finish creating the Scoops reader profile for <strong>${safeName}</strong>.`,
+      code,
+      footer: 'This is a local development email captured by Mailpit. The code expires in 10 minutes.'
+    })
+  });
+}
+
+async function sendWelcomeEmail(email, childName, username) {
+  const displayName = String(childName || 'your child').trim() || 'your child';
+  const readerUsername = String(username || 'reader').trim() || 'reader';
+  const safeName = escapeHtml(displayName);
+  const safeUsername = escapeHtml(readerUsername);
+
+  const text = [
+    'Welcome to Scoops!',
+    '',
+    `Thank you for creating a Scoops account for ${displayName}. By joining Scoops, you are giving your child another place to practice reading, explore ideas, and build confidence through creativity.`,
+    '',
+    'Scoops is a children’s literacy and creative-expression experience where young readers can discover stories, strengthen phonics, vocabulary, and spelling skills, and turn their own ideas into illustrated books.',
+    '',
+    'Reader profile',
+    `${displayName} — @${readerUsername}`,
+    '',
+    'Inside Scoops, your child can:',
+    '• Read and explore age-appropriate stories',
+    '• Practice phonics, vocabulary, spelling, and comprehension',
+    '• Write, illustrate, and save original books',
+    '• Build confidence as a reader, learner, and creator',
+    '',
+    'The Parent Section also lets you review learning activity and request progress reports so you can celebrate growth and see what your child may want to practice next.',
+    '',
+    'Thank you for supporting your child’s imagination, education, and love of reading. We are excited to have your family in the Scoops community.',
+    '',
+    'Happy reading and creating,',
+    'The Scoops Team'
+  ].join('\n');
+
+  const html = emailLayout({
+    eyebrow: 'Welcome to Scoops',
+    title: 'A new reading and creativity journey begins',
+    body: `
+      <p style="margin:0 0 16px;">Thank you for creating a Scoops account for <strong>${safeName}</strong>. By joining Scoops, you are giving your child another place to practice reading, explore ideas, and build confidence through creativity.</p>
+      <p style="margin:0 0 16px;"><strong>Scoops</strong> is a children’s literacy and creative-expression experience where young readers can discover stories, strengthen phonics, vocabulary, and spelling skills, and turn their own ideas into illustrated books.</p>
+      <div style="margin:22px 0;padding:18px 20px;background:#f7f2ff;border:2px solid #d8c8f1;border-radius:16px;">
+        <div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.8px;color:#7c5cbf;margin-bottom:7px;">Reader profile ready</div>
+        <div style="font-size:22px;font-weight:900;color:#333;">${safeName}</div>
+        <div style="font-size:16px;font-weight:800;color:#7c5cbf;margin-top:3px;">@${safeUsername}</div>
+      </div>
+      <p style="margin:0 0 10px;font-weight:900;">Inside Scoops, your child can:</p>
+      <ul style="margin:0 0 18px;padding-left:22px;line-height:1.75;">
+        <li>Read and explore age-appropriate stories</li>
+        <li>Practice phonics, vocabulary, spelling, and comprehension</li>
+        <li>Write, illustrate, and save original books</li>
+        <li>Build confidence as a reader, learner, and creator</li>
+      </ul>
+      <div style="margin:18px 0;padding:16px 18px;background:#fff9c4;border:2px solid #ffd54f;border-radius:16px;">
+        <div style="font-weight:900;margin-bottom:5px;">For parents and guardians</div>
+        <div style="line-height:1.6;">Use the Parent Section to review learning activity and request progress reports so you can celebrate growth and see what your child may want to practice next.</div>
+      </div>
+      <p style="margin:0 0 16px;">Thank you for supporting your child’s imagination, education, and love of reading. We are excited to have your family in the Scoops community.</p>
+      <p style="margin:0;"><strong>Happy reading and creating,<br>The Scoops Team</strong></p>
+    `,
+    footer: `Local Mailpit development email · Template ${WELCOME_TEMPLATE_VERSION} · Scoops is still a prototype and should not collect real children’s information.`
+  });
+
+  await smtpSend({
+    to: email,
+    subject: 'Welcome to Scoops — let’s grow a love of reading',
+    text,
+    html
+  });
+}
+
+function progressAreaLabel(key) {
+  return ({ phonics: 'Phonics', vocabulary: 'Vocabulary', spelling: 'Spelling' })[key] || String(key || 'Learning area');
+}
+
+function progressAreaGuidance(key, score) {
+  const area = progressAreaLabel(key);
+  const practices = {
+    phonics: 'Practice letter sounds, blending, sound patterns, and word families in short repeat sessions.',
+    vocabulary: 'Review new word meanings, use each word in a sentence, and revisit words that were missed.',
+    spelling: 'Practice listening for each sound, review spelling patterns, and rewrite missed words correctly.'
+  };
+  const level = score < 60 ? 'Needs immediate support' : score < 75 ? 'Needs focused practice' : 'Continue strengthening';
+  return {
+    area,
+    score,
+    level,
+    message: `${area} is ${score < 60 ? 'below the current learning target' : score < 75 ? 'not yet consistently meeting the current target' : 'the best area to keep strengthening next'}. ${practices[key] || 'Repeat the related lesson and practice missed questions.'}`
+  };
+}
+
+function normalizeProgressReport(input) {
+  const report = input && typeof input === 'object' ? input : {};
+  const numeric = (value, max = 100000) => Math.max(0, Math.min(max, Math.round(Number(value) || 0)));
+  const percentage = value => Math.max(0, Math.min(100, numeric(value, 100)));
+  const safeList = value => Array.isArray(value)
+    ? value.slice(0, 8).map(item => String(item || '').trim()).filter(Boolean)
+    : [];
+  const pathProgress = {
+    phonics: percentage(report.pathProgress?.phonics),
+    vocabulary: percentage(report.pathProgress?.vocabulary),
+    spelling: percentage(report.pathProgress?.spelling)
+  };
+  const categoryAttempts = {
+    phonics: numeric(report.categoryAttempts?.phonics, 10000),
+    vocabulary: numeric(report.categoryAttempts?.vocabulary, 10000),
+    spelling: numeric(report.categoryAttempts?.spelling, 10000)
+  };
+  let improvementAreas = Array.isArray(report.improvementAreas)
+    ? report.improvementAreas.slice(0, 3).map(item => ({
+        area: String(item?.area || '').trim().slice(0, 80),
+        score: percentage(item?.score),
+        level: String(item?.level || 'Needs focused practice').trim().slice(0, 80),
+        message: String(item?.message || '').trim().slice(0, 500)
+      })).filter(item => item.area && item.message)
+    : [];
+  if (!improvementAreas.length) {
+    improvementAreas = Object.entries(pathProgress)
+      .filter(([key, score]) => (categoryAttempts[key] > 0 || score > 0) && score < 75)
+      .sort((a, b) => a[1] - b[1])
+      .map(([key, score]) => progressAreaGuidance(key, score));
+  }
+  const assessed = Object.entries(pathProgress)
+    .filter(([key, score]) => categoryAttempts[key] > 0 || score > 0)
+    .sort((a, b) => a[1] - b[1]);
+  const growthFocus = report.growthFocus && typeof report.growthFocus === 'object'
+    ? {
+        area: String(report.growthFocus.area || '').trim().slice(0, 80),
+        score: percentage(report.growthFocus.score),
+        level: String(report.growthFocus.level || 'Continue strengthening').trim().slice(0, 80),
+        message: String(report.growthFocus.message || '').trim().slice(0, 500)
+      }
+    : assessed.length ? progressAreaGuidance(assessed[0][0], assessed[0][1]) : null;
+  const unassessedAreas = safeList(report.unassessedAreas).length
+    ? safeList(report.unassessedAreas)
+    : Object.entries(categoryAttempts).filter(([, count]) => count === 0).map(([key]) => progressAreaLabel(key));
+  return {
+    childName: String(report.childName || 'Your child').trim().slice(0, 80) || 'Your child',
+    period: String(report.period || 'week').trim().slice(0, 30),
+    periodLabel: String(report.periodLabel || 'Past 7 days').trim().slice(0, 80),
+    startDate: String(report.startDate || '').trim().slice(0, 40),
+    endDate: String(report.endDate || '').trim().slice(0, 40),
+    minutes: numeric(report.minutes),
+    lessons: numeric(report.lessons, 10000),
+    quizCount: numeric(report.quizCount, 10000),
+    quizAverage: percentage(report.quizAverage),
+    stories: numeric(report.stories, 10000),
+    streak: numeric(report.streak, 3660),
+    pathProgress,
+    categoryAttempts,
+    strongestArea: String(report.strongestArea || 'Developing across Scoops').trim().slice(0, 80),
+    highlights: safeList(report.highlights),
+    improvementAreas,
+    growthFocus,
+    unassessedAreas,
+    nextStep: String(report.nextStep || growthFocus?.message || 'Keep reading, creating, and practicing a little each day.').trim().slice(0, 500),
+    dataSource: String(report.dataSource || 'activity stored in this browser').trim().slice(0, 160)
+  };
+}
+
+function reportMetricCard(value, label, accent) {
+  return `<td width="33.33%" style="padding:5px;vertical-align:top;">
+    <div style="min-height:86px;padding:14px 9px;text-align:center;background:#ffffff;border:2px solid ${accent};border-radius:15px;">
+      <div style="font-size:25px;font-weight:900;color:#5f469d;line-height:1.1;">${escapeHtml(value)}</div>
+      <div style="margin-top:6px;font-size:12px;font-weight:800;color:#666;line-height:1.3;">${escapeHtml(label)}</div>
+    </div>
+  </td>`;
+}
+
+function reportProgressRow(label, value, fill, attempts = 0) {
+  const percentage = Math.max(0, Math.min(100, Number(value) || 0));
+  const filledWidth = attempts > 0 ? percentage : 0;
+  const status = attempts <= 0 ? 'Not assessed' : percentage < 60 ? 'Needs immediate support' : percentage < 75 ? 'Needs practice' : percentage < 85 ? 'Developing' : 'On track';
+  const fillBar = filledWidth > 0
+    ? `<table role="presentation" align="left" width="${filledWidth}%" cellspacing="0" cellpadding="0" border="0" style="width:${filledWidth}%;height:11px;border-collapse:separate;border-spacing:0;margin:0 auto 0 0;mso-table-lspace:0;mso-table-rspace:0;float:left;"><tr><td height="11" bgcolor="${fill}" style="height:11px;padding:0;background:${fill};border-radius:999px;font-size:0;line-height:0;">&nbsp;</td></tr></table>`
+    : '&nbsp;';
+  return `<div style="margin:0 0 15px;text-align:left;direction:ltr;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;border-collapse:collapse;margin:0 0 6px;mso-table-lspace:0;mso-table-rspace:0;">
+      <tr>
+        <td align="left" style="font-size:13px;font-weight:800;color:#444;text-align:left;">${escapeHtml(label)}</td>
+        <td align="right" style="font-size:13px;font-weight:800;color:#444;text-align:right;white-space:nowrap;">${attempts > 0 ? `${percentage}%` : 'No score yet'}</td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eeeeee" style="width:100%;height:11px;border-collapse:separate;border-spacing:0;background:#eeeeee;border-radius:999px;overflow:hidden;margin:0;mso-table-lspace:0;mso-table-rspace:0;">
+      <tr>
+        <td align="left" valign="middle" style="height:11px;padding:0;text-align:left;font-size:0;line-height:0;">
+          ${fillBar}
+        </td>
+      </tr>
+    </table>
+    <div style="clear:both;margin-top:5px;font-size:11px;font-weight:800;text-align:left;color:${attempts <= 0 ? '#777' : percentage < 75 ? '#b23b52' : '#4b7650'};">${escapeHtml(status)}${attempts > 0 ? ` · ${attempts} assessment${attempts === 1 ? '' : 's'}` : ''}</div>
+  </div>`;
+}
+
+async function sendProgressReportEmail(email, rawReport, automatic = false) {
+  const report = normalizeProgressReport(rawReport);
+  const safeName = escapeHtml(report.childName);
+  const dateRange = report.startDate
+    ? `${escapeHtml(report.startDate)} – ${escapeHtml(report.endDate)}`
+    : escapeHtml(report.periodLabel);
+  const highlights = report.highlights.length
+    ? report.highlights
+    : ['Learning activity will appear here as the child uses Scoops.'];
+  const priority = report.improvementAreas[0] || report.growthFocus;
+  const priorityLabel = priority?.area || 'More activity needed';
+
+  const improvementText = report.improvementAreas.length
+    ? ['Where improvement is needed:', ...report.improvementAreas.map(item => `• ${item.area}: ${item.score}% — ${item.level}. ${item.message}`)]
+    : report.growthFocus
+      ? ['Where to keep growing:', `• ${report.growthFocus.area}: ${report.growthFocus.score}% — ${report.growthFocus.message}`]
+      : ['Where improvement is needed:', '• Not enough assessed activity was recorded to identify a weak skill accurately.'];
+  if (report.unassessedAreas.length) improvementText.push(`Not yet assessed in this period: ${report.unassessedAreas.join(', ')}.`);
+
+  const text = [
+    `${report.childName}'s Scoops Progress Report`,
+    `${report.periodLabel}${report.startDate ? ` (${report.startDate} – ${report.endDate})` : ''}`,
+    '',
+    `Learning minutes: ${report.minutes}`,
+    `Lessons completed: ${report.lessons}`,
+    `Quiz average: ${report.quizAverage}% across ${report.quizCount} quiz${report.quizCount === 1 ? '' : 'zes'}`,
+    `Stories created or updated: ${report.stories}`,
+    `Activity streak: ${report.streak} day${report.streak === 1 ? '' : 's'}`,
+    `Strongest area: ${report.strongestArea}`,
+    `Priority area: ${priorityLabel}`,
+    '',
+    'What went well:',
+    ...highlights.map(item => `• ${item}`),
+    '',
+    ...improvementText,
+    '',
+    `Recommended next step: ${report.nextStep}`,
+    '',
+    `This report was generated from ${report.dataSource}.`,
+    automatic ? 'This was an automatic weekly progress report.' : 'This report was requested from the Scoops Parent Section.',
+    '',
+    'Happy reading and creating,',
+    'The Scoops Team'
+  ].join('\n');
+
+  const improvementHtml = report.improvementAreas.length
+    ? `<ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.7;color:#4d3338;">${report.improvementAreas.map(item => `<li style="margin-bottom:9px;"><strong>${escapeHtml(item.area)}: ${item.score}% — ${escapeHtml(item.level)}</strong><br>${escapeHtml(item.message)}</li>`).join('')}</ul>`
+    : report.growthFocus
+      ? `<div style="font-size:14px;line-height:1.65;color:#4d3338;"><strong>${escapeHtml(report.growthFocus.area)}: ${report.growthFocus.score}%</strong><br>No assessed area is currently below the 75% needs-improvement threshold. ${escapeHtml(report.growthFocus.message)}</div>`
+      : `<div style="font-size:14px;line-height:1.65;color:#4d3338;">Not enough assessed activity was recorded to identify a weak skill accurately. Scoops will flag phonics, vocabulary, or spelling once there is enough quiz data.</div>`;
+  const unassessedHtml = report.unassessedAreas.length
+    ? `<div style="margin-top:12px;padding-top:11px;border-top:1px solid #efc8d0;font-size:12px;line-height:1.55;color:#75555d;"><strong>Not yet assessed in this period:</strong> ${escapeHtml(report.unassessedAreas.join(', '))}. A missing score is not treated as a failing score.</div>`
+    : '';
+
+  const card = `<div style="overflow:hidden;background:#ffffff;border:3px solid #b39ddb;border-radius:24px;box-shadow:0 9px 26px rgba(84,64,115,.15);">
+    <div style="padding:27px 28px 24px;background:linear-gradient(135deg,#f3eeff,#fce4ec);border-bottom:2px solid #e0d4f7;">
+      <div style="font-size:12px;font-weight:900;letter-spacing:1px;text-transform:uppercase;color:#7c5cbf;">Scoops learning report</div>
+      <h1 style="margin:7px 0 6px;font-size:30px;line-height:1.15;color:#6748ad;">${safeName}’s progress</h1>
+      <div style="font-size:14px;font-weight:700;color:#666;">${escapeHtml(report.periodLabel)} · ${dateRange}</div>
+    </div>
+
+    <div style="padding:25px 23px 28px;">
+      <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">This report shows both where <strong>${safeName}</strong> is progressing and where more support or practice may be needed.</p>
+
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;margin:0 -5px 17px;width:calc(100% + 10px);">
+        <tr>
+          ${reportMetricCard(report.minutes, 'learning minutes', '#b39ddb')}
+          ${reportMetricCard(report.lessons, 'lessons completed', '#f4a7b9')}
+          ${reportMetricCard(`${report.quizAverage}%`, 'quiz average', '#81c784')}
+        </tr>
+        <tr>
+          ${reportMetricCard(report.stories, 'stories created', '#ffd54f')}
+          ${reportMetricCard(report.strongestArea, 'strongest area', '#64b5f6')}
+          ${reportMetricCard(priorityLabel, 'priority area', '#e57373')}
+        </tr>
+      </table>
+
+      <div style="margin:0 0 17px;padding:18px;background:#fcfaff;border:2px solid #e0d4f7;border-radius:17px;">
+        <div style="margin-bottom:12px;font-size:16px;font-weight:900;color:#6748ad;">Learning-path progress</div>
+        ${reportProgressRow('Fun with Phonics', report.pathProgress.phonics, '#9b7bd2', report.categoryAttempts.phonics)}
+        ${reportProgressRow('Vocabulary Vault', report.pathProgress.vocabulary, '#ffb74d', report.categoryAttempts.vocabulary)}
+        ${reportProgressRow('Spelling Bee', report.pathProgress.spelling, '#81c784', report.categoryAttempts.spelling)}
+        <div style="font-size:11px;line-height:1.5;color:#777;">Scores below 60% are flagged for immediate support. Scores from 60–74% are flagged for focused practice. An area with no quiz activity is marked “Not assessed,” not as a failure.</div>
+      </div>
+
+      <div style="margin:0 0 17px;padding:18px;background:#fffdf4;border:2px solid #ffe082;border-radius:17px;">
+        <div style="margin-bottom:9px;font-size:16px;font-weight:900;color:#765a00;">What went well</div>
+        <ul style="margin:0;padding-left:20px;font-size:14px;line-height:1.7;color:#444;">
+          ${highlights.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div style="margin:0 0 17px;padding:18px;background:#fff0f3;border:2px solid #ef9aab;border-radius:17px;">
+        <div style="margin-bottom:9px;font-size:16px;font-weight:900;color:#a12d47;">Where improvement is needed</div>
+        ${improvementHtml}
+        ${unassessedHtml}
+      </div>
+
+      <div style="margin:0 0 18px;padding:18px;background:#edf8ee;border:2px solid #a5d6a7;border-radius:17px;">
+        <div style="margin-bottom:7px;font-size:16px;font-weight:900;color:#2e7d32;">Recommended next step</div>
+        <div style="font-size:14px;line-height:1.65;color:#3f5140;">${escapeHtml(report.nextStep)}</div>
+      </div>
+
+      <p style="margin:0 0 15px;font-size:14px;line-height:1.65;">The goal is not only to celebrate completed work, but to use the results to guide what ${safeName} practices next.</p>
+      <p style="margin:0;font-size:14px;line-height:1.6;"><strong>Happy reading and creating,<br>The Scoops Team</strong></p>
+
+      <div style="margin-top:22px;padding-top:15px;border-top:1px solid #eeeeee;font-size:11px;line-height:1.55;color:#777;">
+        ${automatic ? 'This automatic weekly report' : 'This requested report'} was generated from ${escapeHtml(report.dataSource)}. Local Mailpit development email · Template ${REPORT_TEMPLATE_VERSION}. Weekly reports can be turned off in the Scoops Parent Section.
+      </div>
+    </div>
+  </div>`;
+
+  const html = brandedEmailShell(card, 670);
+  await smtpSend({
+    to: email,
+    subject: `${report.childName}'s Scoops progress — ${report.periodLabel}`,
+    text,
+    html
+  });
+  return report;
+}
+
+async function sendParentCodeEmail(email, childName, code) {
+  const safeName = escapeHtml(childName || 'the child account');
+  await smtpSend({
+    to: email,
+    subject: 'Your Scoops parent verification code',
+    text: `Use parent verification code ${code} to open the Scoops parent section for ${childName || 'the child account'}. This code expires in 10 minutes.`,
+    html: emailLayout({
+      eyebrow: 'Parent section verification',
+      title: 'Your parent access code',
+      body: `Use this one-time code to open the protected parent section for <strong>${safeName}</strong>.`,
+      code,
+      footer: 'This is a local development email captured by Mailpit. The code expires in 10 minutes.'
+    })
+  });
+}
+
+function sendJson(response, status, payload) {
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
+  });
+  response.end(JSON.stringify(payload));
+}
+
+function readJson(request) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    request.on('data', chunk => {
+      body += chunk;
+      if (body.length > 100_000) {
+        reject(new Error('Request body is too large.'));
+        request.destroy();
+      }
+    });
+    request.on('end', () => {
+      try { resolve(body ? JSON.parse(body) : {}); }
+      catch { reject(new Error('Invalid JSON request.')); }
+    });
+    request.on('error', reject);
+  });
+}
+
+async function handleApi(request, response, pathname) {
+  if (request.method !== 'POST') return sendJson(response, 405, { error: 'Use POST for this endpoint.' });
+  let body;
+  try { body = await readJson(request); }
+  catch (error) { return sendJson(response, 400, { error: error.message }); }
+
+  const email = normalizeEmail(body.email);
+  if (!isValidEmail(email)) return sendJson(response, 400, { error: 'Enter a valid email address.' });
+
+  try {
+    if (pathname === '/api/auth/send-verification') {
+      const code = storeCode(verificationCodes, email);
+      await sendVerificationEmail(email, String(body.childName || '').trim(), code);
+      return sendJson(response, 200, { ok: true, expiresInSeconds: Math.floor(CODE_TTL_MS / 1000) });
+    }
+
+    if (pathname === '/api/auth/verify') {
+      const result = verifyStoredCode(verificationCodes, email, body.code);
+      if (!result.ok) return sendJson(response, 400, { error: result.error });
+      await sendWelcomeEmail(email, String(body.childName || '').trim(), String(body.username || '').trim());
+      return sendJson(response, 200, { ok: true, verified: true, welcomeSent: true });
+    }
+
+    if (pathname === '/api/reports/send') {
+      const report = await sendProgressReportEmail(email, body.report, Boolean(body.automatic));
+      return sendJson(response, 200, { ok: true, sent: true, periodLabel: report.periodLabel });
+    }
+
+    if (pathname === '/api/parent/send-code') {
+      const code = storeCode(parentCodes, email);
+      await sendParentCodeEmail(email, String(body.childName || '').trim(), code);
+      return sendJson(response, 200, { ok: true, expiresInSeconds: Math.floor(CODE_TTL_MS / 1000) });
+    }
+
+    if (pathname === '/api/parent/verify-code') {
+      const result = verifyStoredCode(parentCodes, email, body.code);
+      if (!result.ok) return sendJson(response, 400, { error: result.error });
+      return sendJson(response, 200, { ok: true, verified: true });
+    }
+
+    return sendJson(response, 404, { error: 'API endpoint not found.' });
+  } catch (error) {
+    console.error(error);
+    return sendJson(response, 502, { error: error.message });
+  }
+}
+
+const server = http.createServer(async (request, response) => {
+  const url = new URL(request.url, `http://${request.headers.host || `${HOST}:${PORT}`}`);
+  const pathname = url.pathname;
+
+  if (request.method === 'OPTIONS') return sendJson(response, 204, {});
+
+  if (pathname === '/health' || pathname === '/api/health') {
+    return sendJson(response, 200, {
+      ok: true,
+      app: `http://${HOST}:${PORT}`,
+      mailpitUi: 'http://localhost:8025',
+      mailpitSmtp: `${MAILPIT_SMTP_HOST}:${MAILPIT_SMTP_PORT}`,
+      build: SCOOPS_BUILD,
+      welcomeTemplate: WELCOME_TEMPLATE_VERSION,
+      reportTemplate: REPORT_TEMPLATE_VERSION
+    });
+  }
+
+  if (pathname.startsWith('/api/')) return handleApi(request, response, pathname);
+
+  if (pathname === '/mailpit') {
+    response.writeHead(302, { Location: 'http://localhost:8025' });
+    return response.end();
+  }
+
+  if (pathname === '/' || pathname === '/index.html' || pathname === '/scoops_mailpit_connected.html') {
+    fs.readFile(HTML_FILE, (error, content) => {
+      if (error) {
+        response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        return response.end(`Could not read ${path.basename(HTML_FILE)}.\n${error.message}`);
+      }
+      response.writeHead(200, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      response.end(content);
+    });
+    return;
+  }
+
+  response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  response.end('Not found');
+});
+
+server.listen(PORT, HOST, () => {
+  console.log(`Scoops:  http://localhost:${PORT}`);
+  console.log(`Serving: ${path.basename(HTML_FILE)}`);
+  console.log('Mailpit: http://localhost:8025');
+  console.log(`SMTP:   ${MAILPIT_SMTP_HOST}:${MAILPIT_SMTP_PORT}`);
+  console.log(`Build:  ${SCOOPS_BUILD}`);
+  console.log(`Welcome:${WELCOME_TEMPLATE_VERSION}`);
+  console.log(`Report: ${REPORT_TEMPLATE_VERSION}`);
+});
