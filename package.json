@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.10.0",
+  "private": true,
+  "description": "Local Scoops prototype with dismissible setup and welcome flows, a collapsible parent learning path, required diagnostic-generated learning paths, tutorial pages, MP4 playback, Word Builder, Reading Detective, reading timing, Mailpit email, and detailed PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
