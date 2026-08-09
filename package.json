@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.30.0",
+  "private": true,
+  "description": "Local Scoops v40 prototype with performance-colored diagnostic results, balanced diagnostic answer choices, Targeted Phonics target cover art, aligned Learn cards, quiz feedback sounds and motion, independent-reading Reading Detective, adaptive skill-specific placement and follow-ups, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
