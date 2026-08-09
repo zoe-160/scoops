@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.23.0",
+  "private": true,
+  "description": "Local Scoops v33 prototype with distinct color-coded Learn cards (purple Word Builder, red/coral Vocabulary Vault, yellow Spelling Bee, blue Reading Detective), corrected Spelling Bee attempt counting and centered feedback, centered Reading Detective case evidence, robust multi-word Spelling Bee state resets, unified purple active navigation, adaptive skill-specific placement, adaptive diagnostic follow-ups, interest-aware passage rotation, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
