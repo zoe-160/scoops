@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.29.0",
+  "private": true,
+  "description": "Local Scoops v39 prototype with Targeted Phonics target-and-curved-word cover art, aligned Learn-card titles, a clearly purple Word Builder card identity, v36 quiz sounds and feedback motion, independent-reading Reading Detective, adaptive skill-specific placement and follow-ups, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
