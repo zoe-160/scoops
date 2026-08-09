@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.24.0",
+  "private": true,
+  "description": "Local Scoops v34 prototype with semantically locked Learn artwork (Reading Detective magnifying glass cannot regress to phonics/CAT art), refreshed Vocabulary Vault and Spelling Bee coded cover art, a centered straight bee stinger, distinct color-coded Learn cards, corrected Spelling Bee attempt counting and centered feedback, adaptive skill-specific placement and follow-ups, interest-aware passage rotation, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
