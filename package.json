@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.46.0",
+  "private": true,
+  "description": "Local Scoops v56 prototype with auto-focused Spelling Bee answer entry, reliable single-button spelling progression, compact mobile Friends layout, two-stage story review, book discovery filters, adaptive diagnostic placement, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
