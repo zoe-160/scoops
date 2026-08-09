@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.51.0",
+  "private": true,
+  "description": "Local Scoops v61 prototype with Continue Reading, Favorites, book reporting, richer book details, reader comfort controls, Friends profiles/search, responsive My Library, adaptive learning, story review workflow, and parent controls",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
