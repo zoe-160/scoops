@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.20.0",
+  "private": true,
+  "description": "Local Scoops v30 prototype with robust multi-word Spelling Bee state resets, unified purple active navigation, improved Reading Detective case-label spacing, richer coded Vocabulary Vault and Spelling Bee cover art, adaptive skill-specific placement, adaptive diagnostic follow-ups, interest-aware passage rotation, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
