@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.27.0",
+  "private": true,
+  "description": "Local Scoops v37 prototype with balanced medium Learn-card artwork, a clearer Vocabulary Vault cover, aligned quiz-title baselines, v36 quiz sounds and feedback motion, independent-reading Reading Detective, adaptive skill-specific placement and follow-ups, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
