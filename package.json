@@ -1,0 +1,12 @@
+{
+  "name": "scoops-mailpit-local",
+  "version": "1.36.0",
+  "private": true,
+  "description": "Local Scoops v46 prototype with iOS-stable overlay auto-hide mobile/tablet navigation, colorful Fun with Phonics target cover art, balanced diagnostic options, adaptive skill-specific placement, quiz feedback sounds and motion, Mailpit email, and PDF progress reports",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
